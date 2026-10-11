@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Revisiting the 16x Pretraining Compute Gap between Diffusion and Autoregressive Language Models">
+  <meta property="og:title" content="Revisiting the 16&times; Pretraining Compute Gap between Diffusion and Autoregressive Language Models"/>
+  <meta property="og:description" content="Under an updated scaling-law protocol, the compute multiple of diffusion language models over autoregressive models falls from 16&times; to between 3&times; and 8&times;."/>
+  <meta property="og:url" content="https://guanghanwang.com/dlm-scaling"/>
+  <meta property="og:image" content="https://guanghanwang.com/dlm-scaling/static/images/fig0_staircase.png"/>
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="diffusion language models, scaling laws, block diffusion, encoder-decoder, exact likelihood">
+
+  <title>Revisiting the 16&times; Pretraining Compute Gap</title>
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <style>
+    .figure-block { text-align: center; margin: 1.5rem 0 0.5rem; }
+    .figure-block img { max-width: 100%; height: auto; }
+    .figure-caption { font-size: 1rem; color: #4a4a4a; margin-top: 0.5rem; text-align: left; }
+    .two-figs { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
+    .two-figs > div { flex: 1 1 300px; max-width: 420px; }
+    @media screen and (min-width: 1100px) {
+      .author-list { white-space: nowrap; width: max-content; position: relative; left: 50%; transform: translateX(-50%); }
+    }
+    .affil-logo { height: 30px; width: auto; vertical-align: middle; }
+    .affil-note { font-size: 0.95rem; color: #4a4a4a; }
+    .tldr { text-align: center; margin-top: 20px; font-size: 1.3rem; }
+    pre code { white-space: pre; }
+  </style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-2 publication-title">Revisiting the 16&times; Pretraining Compute Gap between Diffusion and Autoregressive Language Models</h1>
+
+          <div class="is-size-5 publication-authors author-list">
+            <span class="author-block"><a href="https://guanghanwang.com" target="_blank">Guanghan Wang</a><sup>1</sup>,</span>
+            <span class="author-block">Bing He<sup>2</sup>,</span>
+            <span class="author-block">Zhan Shi<sup>2</sup>,</span>
+            <span class="author-block">Benoit Dumoulin<sup>2</sup>,</span>
+            <span class="author-block"><a href="https://hanqinglu.github.io/" target="_blank">Hanqing Lu</a><sup>2,*</sup>,</span>
+            <span class="author-block"><a href="https://www.cs.cornell.edu/~kuleshov/" target="_blank">Volodymyr Kuleshov</a><sup>1,*</sup></span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>Cornell&nbsp;<img src="static/images/cornell.png" alt="Cornell" class="affil-logo"></span>&nbsp;&nbsp;&nbsp;
+            <span class="author-block"><sup>2</sup>Amazon&nbsp;<img src="static/images/amazon.png" alt="Amazon" class="affil-logo" onerror="this.style.display='none'"></span>&nbsp;&nbsp;&nbsp;
+            <span class="author-block"><sup>*</sup>Equal supervision</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <!-- TODO: replace with the arXiv abstract URL once the paper is listed -->
+            <span class="link-block">
+              <a href="#" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="ai ai-arxiv"></i></span>
+                <span>arXiv</span>
+              </a>
+            </span>
+            <span class="link-block">
+              <a href="https://github.com/amazon-science/dlm-scaling" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="fab fa-github"></i></span>
+                <span>Code</span>
+              </a>
+            </span>
+
+            <p class="tldr">
+              <strong>TL;DR:</strong> The widely cited 16&times; compute gap between diffusion and autoregressive language models
+              largely reflects an outdated scaling-law protocol. Under current practice, the gap falls to between 3&times; and 8&times;.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Teaser figure -->
+<section class="section" style="padding-top: 0;">
+  <div class="container is-max-desktop">
+    <div class="figure-block">
+      <img src="static/images/fig0_staircase.png" alt="Compute multiple of diffusion language models over autoregressive models as the protocol is revised">
+      <p class="figure-caption">
+        <b>Figure 1.</b> Left: the compute multiple <i>c</i> = <i>C</i><sub>DLM</sub>/<i>C</i><sub>ARM</sub> measures how many times more training compute
+        a diffusion language model (DLM) needs than an autoregressive model (ARM) to reach the same compute-optimal
+        negative log-likelihood (NLL).
+        Right: <i>c</i> as the evaluation (ELBO &rarr; DUEL), the model design (MDM &rarr; BD3LM &rarr; E2D2)
+        and the block size are revised.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Our contributions -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="content is-medium">
+        <h2 class="title">Our contributions</h2>
+        <ul>
+          <li>We revisit the scaling laws of diffusion language models (DLMs) under a protocol that reflects current practice:
+            exact likelihood evaluation, block diffusion, an encoder&ndash;decoder architecture, and a sweep over the block sizes
+            used in practice.</li>
+          <li>We show that pretraining DLMs is far cheaper than previously assumed. Exact likelihood evaluation
+            reduces the compute multiple to <strong>12.8&times;</strong>; block diffusion with an encoder&ndash;decoder architecture
+            reduces it to <strong>7.8&times;</strong> at block size 32; and smaller blocks narrow it to <strong>4.6&times;</strong>
+            at block size 8 and <strong>3.0&times;</strong> at block size 4.</li>
+          <li>We find a simple empirical rule for the optimal decoder depth of encoder&ndash;decoder block diffusion, which depends
+            on the block size alone.</li>
+          <li>We show that the gap between variants persists at a held-out budget three times larger than our largest fitted one,
+            and that likelihood improvements carry over to downstream benchmark accuracy.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- End our contributions -->
+
+
+<!-- Where the 16x came from -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Where the 16&times; came from</h2>
+    <div class="content is-medium has-text-justified">
+      <p>
+        The 16&times; figure comes from the IsoFLOP study of SMDM
+        (<a href="https://arxiv.org/abs/2410.18514" target="_blank">Nie et al., 2025</a>), which trained a full-sequence,
+        decoder-only masked diffusion model (MDM), scored it with its ELBO, and compared it with an ARM at matched likelihood.
+        Since then, diffusion language models have changed in three ways that this protocol does not reflect:
+      </p>
+      <ul>
+        <li><b>Evaluation.</b> The ELBO is only an upper bound on the NLL, and it scores the model under uniformly random token orders
+          it never uses at inference. DUEL (<a href="https://arxiv.org/abs/2603.01367" target="_blank">Turok et al., 2026</a>)
+          instead gives the exact NLL under the sampler the model is deployed with, such as confidence-based unmasking.</li>
+        <li><b>Block diffusion.</b> Nearly all large-scale DLMs today generate block by block
+          (BD3LM; <a href="https://arxiv.org/abs/2503.09573" target="_blank">Arriola et al., 2025</a>), with block sizes between 4 and 32.</li>
+        <li><b>Architecture.</b> Encoder&ndash;decoder block diffusion
+          (E2D2; <a href="https://arxiv.org/abs/2510.22852" target="_blank">Arriola et al., 2026</a>) separates the processing of clean and noised tokens,
+          and is in principle cheaper to train than the decoder-only network inherited from ARMs.</li>
+      </ul>
+      <p>
+        We adopt all three, sweep the block sizes <i>b</i> &isin; {4, 8, 16, 32}, count training FLOPs exactly (including the output head and
+        attention), and read the compute multiple within the measured range of the scaling laws rather than by extrapolation.
+        This gives ten model variants and about 1,700 trained models across five budgets from 6&times;10<sup>18</sup> to 10<sup>20</sup> FLOPs.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Staircase -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">From 16&times; to 3&times;, one step at a time</h2>
+    <div class="content is-medium has-text-justified">
+      <p>
+        We now show in more detail how each step of the revised protocol improves the compute multiple, i.e., the training efficiency of DLMs relative to ARMs:
+      </p>
+      <ul>
+        <li><b>ELBO baseline: 17.8&times;.</b> We roughly reproduce the SMDM 16&times; baseline as 17.8&times;.</li>
+        <li><b>Exact likelihood: 12.8&times;.</b> Scoring the very same checkpoints with DUEL pushes down the compute multiple to 12.8&times;.</li>
+        <li><b>Block diffusion: 9.6&times;.</b> At <i>b</i>&nbsp;=&nbsp;32, block factorization training helps reduce the compute multiple to 9.6&times;.</li>
+        <li><b>Encoder&ndash;decoder: 7.8&times;.</b> At <i>b</i>&nbsp;=&nbsp;32, E2D2 beats the decoder-only BD3LM in terms of training efficiency, reaching a compute multiple of 7.8&times;.</li>
+        <li><b>Smaller blocks: 6.3&times;, 4.6&times; and 3.0&times;</b> at <i>b</i>&nbsp;=&nbsp;16, 8 and 4.</li>
+      </ul>
+    </div>
+    <div class="figure-block" style="max-width: 460px; margin-left: auto; margin-right: auto;">
+      <img src="static/images/fig2_lstar_laws.png" alt="Fitted compute-optimal NLL scaling laws of the model variants">
+      <p class="figure-caption"><b>Figure 2.</b> Compute-optimal NLL of different model variants, solid inside the fitted range and dashed outside.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Decoder depth -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">How deep should the E2D2 decoder be?</h2>
+    <div class="content is-medium has-text-justified">
+      <p>
+        E2D2 has one design choice the other variants do not: how to split the layers between the encoder and the decoder.
+        We swept the decoder depth at every grid point, and found that the optimal decoder fraction depends on the block size alone
+        and is decoder-heavy:
+      </p>
+      <p style="text-align: center; font-size: 1.3rem;"><i>L</i><sup>*</sup><sub>dec</sub>&thinsp;/&thinsp;<i>L</i> &nbsp;&asymp;&nbsp; 0.556 + 0.043&thinsp;log<sub>2</sub>&thinsp;<i>b</i></p>
+      <p>
+        In practice, one multiplies the rule by the total depth <i>L</i> and rounds to a whole number of decoder layers.
+        At 132 of the 142 grid points with <i>b</i> &isin; {4, 8, 16, 32}, the resulting configuration lies within 10 m-nats of the
+        best DUEL found by the sweep, including all 20 compute-optimal ones.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Held-out and benchmarks -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Does it hold up?</h2>
+    <div class="content is-medium has-text-justified">
+      <p>
+        <b>Beyond the fitting range.</b> We trained the ARM and E2D2 (<i>b</i> &isin; {16, 32}) at a held-out budget of 3&times;10<sup>20</sup>
+        FLOPs, three times the largest fitted budget. The gap between E2D2 and the ARM predicted by the fitted laws is
+        reproduced almost exactly.
+      </p>
+      <p>
+        <b>Downstream benchmarks.</b> On eight zero-shot benchmarks (HellaSwag, ARC-easy, PIQA, SciQ, RACE, SIQA, OpenBookQA
+        and LAMBADA), the order of the variants in mean accuracy follows their order in likelihood.
+      </p>
+    </div>
+    <div class="two-figs">
+      <div class="figure-block">
+        <img src="static/images/fig6_extrap_3e20.png" alt="Held-out budget at 3e20 FLOPs">
+        <p class="figure-caption"><b>Figure 3.</b> Laws fitted on budgets up to 10<sup>20</sup> FLOPs (dots); stars are the measured values at 3&times;10<sup>20</sup>.</p>
+      </div>
+      <div class="figure-block">
+        <img src="static/images/fig7_bench_rank.png" alt="Mean benchmark accuracy against compute">
+        <p class="figure-caption"><b>Figure 4.</b> Mean accuracy over eight benchmarks against compute for the compute-optimal model of each variant.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Caveats -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Caveats</h2>
+    <div class="content is-medium has-text-justified">
+      <p>
+        Our experiments run up to 3&times;10<sup>20</sup> FLOPs with a single seed, and all variants share one learning-rate and
+        batch-size configuration, inherited from SMDM for comparability. DUEL is measured under the top-1 confidence sampler
+        only. See the paper for more details.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- BibTeX -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <!-- TODO: fill in the arXiv identifier once the paper is listed -->
+<pre><code>@article{wang2026revisiting,
+  title   = {Revisiting the 16x Pretraining Compute Gap between Diffusion and Autoregressive Language Models},
+  author  = {Wang, Guanghan and He, Bing and Shi, Zhan and Dumoulin, Benoit and Lu, Hanqing and Kuleshov, Volodymyr},
+  journal = {arXiv preprint arXiv:XXXX.XXXXX},
+  year    = {2026}
+}</code></pre>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>,
+            which was adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+            <br>This website is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
